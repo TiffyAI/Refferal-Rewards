@@ -2,117 +2,127 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Share & Earn: 1→2 TIFFY</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
+  <title>Give 1 TIFFY, Get 2 Back</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <style>
     body {
-      margin:0; padding:0;
-      font-family:'Orbitron',sans-serif;
-      background:#000 url('main.jpg') no-repeat center/cover;
-      color:#00ffff;
-      display:flex; align-items:center; justify-content:center;
-      height:100vh;
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      background: #000 url('MintBadgePlaceholder.jpg') no-repeat center center/cover;
+      color: #00ffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
     }
-    .panel {
-      background:rgba(0,0,0,0.7);
-      padding:2rem; border-radius:20px;
-      box-shadow:0 0 20px #00ffff;
-      text-align:center; max-width:400px; width:100%;
+
+    .glass {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 2rem;
+      border-radius: 20px;
+      box-shadow: 0 0 20px #00ffff;
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
     }
-    h1 { margin-bottom:1rem; text-shadow:0 0 10px #00ffff; }
-    input, button {
-      width:100%; margin:0.5rem 0;
-      padding:0.8rem; font-size:1rem;
-      border:none; border-radius:10px;
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
     }
-    input { background:#111; color:#fff; }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      margin: 1rem 0;
+      font-size: 1rem;
+    }
+
     button {
-      background:linear-gradient(90deg,#00ffff,#ff00ff);
-      color:#000; cursor:pointer;
-      box-shadow:0 0 10px #00ffff;
-      transition:transform .2s;
+      background: #00ffff;
+      color: #000;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s ease;
     }
-    button:hover { transform:scale(1.05); }
-    #status { margin-top:1rem; min-height:1.2em; }
+
+    button:hover {
+      background: #00ddff;
+    }
+
+    #status {
+      margin-top: 1rem;
+      font-size: 1rem;
+    }
   </style>
 </head>
 <body>
-  <div class="panel">
-    <h1>Share & Earn</h1>
-    <button id="connectBtn">Connect Wallet</button>
-    <input type="text" id="friend" placeholder="Friend’s wallet address" disabled />
-    <button id="sendBtn" disabled>Send 1 TIFFY → Friend</button>
+  <div class="glass">
+    <h1>💖 Give 1 TIFFY → Get 2 Back</h1>
+    <input type="text" id="friendAddress" placeholder="Enter your friend's wallet address" />
+    <button onclick="sendAndReward()">Send 1 TIFFY & Claim 2 Back</button>
     <div id="status"></div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <script>
-    const TOKEN_ADDR = "0x6df97Ec32401e23dEDB2E6cAF3035155890DC237";
-    const REWARDS_WALLET = "0xF27d595F962ed722F39889B23682B39F712B4Da8";
-    const ABI = [{
-      constant:false,inputs:[
-        {name:"_to",type:"address"},
-        {name:"_value",type:"uint256"}
-      ],name:"transfer",outputs:[{name:"",type:"bool"}],type:"function"
-    },{
-      constant:false,inputs:[
-        {name:"_from",type:"address"},
-        {name:"_to",type:"address"},
-        {name:"_value",type:"uint256"}
-      ],name:"transferFrom",outputs:[{name:"",type:"bool"}],type:"function"
+    const tokenAddress = "0x6df97Ec32401e23dEDB2E6cAF3035155890DC237"; // TIFFY Token
+    const rewardWallet = "0xF27d595F962ed722F39889B23682B39F712B4Da8";
+
+    const tokenABI = [{
+      "constant": false,
+      "inputs": [
+        { "name": "recipient", "type": "address" },
+        { "name": "amount", "type": "uint256" }
+      ],
+      "name": "transfer",
+      "outputs": [{ "name": "", "type": "bool" }],
+      "type": "function"
     }];
 
-    let web3, account, contract;
+    async function sendAndReward() {
+      const status = document.getElementById("status");
+      const friend = document.getElementById("friendAddress").value.trim();
 
-    const connectBtn = document.getElementById("connectBtn");
-    const friendIn   = document.getElementById("friend");
-    const sendBtn    = document.getElementById("sendBtn");
-    const statusDiv  = document.getElementById("status");
-
-    connectBtn.onclick = async () => {
       if (!window.ethereum) {
-        alert("Install MetaMask or another Web3 wallet!");
-        return;
+        return alert("MetaMask not detected.");
       }
-      web3 = new Web3(window.ethereum);
+
+      if (!friend || !/^0x[a-fA-F0-9]{40}$/.test(friend)) {
+        return status.innerText = "❌ Please enter a valid wallet address.";
+      }
+
       try {
-        const accs = await window.ethereum.request({ method: "eth_requestAccounts" });
-        account = accs[0];
-        contract = new web3.eth.Contract(ABI, TOKEN_ADDR);
-        connectBtn.innerText = account.slice(0,6) + "…" + account.slice(-4);
-        friendIn.disabled = sendBtn.disabled = false;
-        statusDiv.innerText = "";
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const sender = accounts[0];
+
+        const web3 = new Web3(window.ethereum);
+        const contract = new web3.eth.Contract(tokenABI, tokenAddress);
+
+        status.innerText = "⏳ Sending 1 TIFFY to your friend...";
+
+        // Step 1: User sends 1 TIFFY to friend
+        await contract.methods
+          .transfer(friend, web3.utils.toWei("1", "ether"))
+          .send({ from: sender });
+
+        status.innerText = "✅ Sent 1 TIFFY to your friend. Claiming your reward...";
+
+        // Step 2: Reward wallet sends 2 TIFFY to user
+        await contract.methods
+          .transfer(sender, web3.utils.toWei("2", "ether"))
+          .send({ from: rewardWallet });
+
+        status.innerText = "🎉 You received 2 TIFFY for spreading the love!";
       } catch (err) {
         console.error(err);
-        statusDiv.innerText = "⚠️ Wallet connection failed.";
+        status.innerText = "❌ Transaction failed: " + err.message;
       }
-    };
-
-    sendBtn.onclick = async () => {
-      const friend = friendIn.value.trim();
-      if (!/^0x[a-fA-F0-9]{40}$/.test(friend)) {
-        statusDiv.innerText = "❌ Invalid friend address.";
-        return;
-      }
-      try {
-        statusDiv.innerText = "⏳ Sending 1 TIFFY to friend…";
-        // 1) send 1 TIFFY from you → friend
-        await contract.methods
-          .transfer(friend, web3.utils.toWei("1","ether"))
-          .send({ from: account });
-        statusDiv.innerText = "✅ Sent 1 TIFFY! Now claiming your 2 TIFFY…";
-
-        // 2) send 2 TIFFY from REWARDS_WALLET → friend
-        await contract.methods
-          .transferFrom(REWARDS_WALLET, friend, web3.utils.toWei("2","ether"))
-          .send({ from: REWARDS_WALLET });
-        statusDiv.innerText = "🎉 You earned 2 TIFFY! Enjoy.";
-      } catch (err) {
-        console.error(err);
-        statusDiv.innerText = "❌ Transaction failed: " + (err.message||err);
-      }
-    };
+    }
   </script>
 </body>
 </html>
