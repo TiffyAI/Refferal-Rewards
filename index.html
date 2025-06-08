@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Give 1 TIFFY, Get 2 Back</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
+
+    body {
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      background: #000 url('Share.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: #00ffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .glass {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 2rem;
+      border-radius: 20px;
+      box-shadow: 0 0 20px #00ffff;
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+      backdrop-filter: blur(1px);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      margin: 1rem 0;
+      font-size: 1rem;
+    }
+
+    button {
+      background: #00ffff;
+      color: #000;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #00ddff;
+    }
+
+    #status {
+      margin-top: 1rem;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="glass">
+    <h1>💖 Give 1 TIFFY → Get 2 Back</h1>
+    <input type="text" id="friendAddress" placeholder="Enter your friend's wallet address" />
+    <button onclick="sendAndReward()">Send 1 TIFFY & Claim 2 Back</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const tokenAddress = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5"; // Mainnet TIFFY Token
+    const backendURL = "https://tiffyai-wh-wa.onrender.com/reward";
+
+    const tokenABI = [{
+      "constant": false,
+      "inputs": [
+        { "name": "recipient", "type": "address" },
+        { "name": "amount", "type": "uint256" }
+      ],
+      "name": "transfer",
+      "outputs": [{ "name": "", "type": "bool" }],
+      "type": "function"
+    }];
+
+    async function sendAndReward() {
+      const status = document.getElementById("status");
+      const friend = document.getElementById("friendAddress").value.trim();
+
+      if (!window.ethereum) {
+        return alert("MetaMask not detected.");
+      }
+
+      if (!friend || !/^0x[a-fA-F0-9]{40}$/.test(friend)) {
+        return status.innerText = "❌ Please enter a valid wallet address.";
+      }
+
+      try {
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const sender = accounts[0];
+        const web3 = new Web3(window.ethereum);
+        const contract = new web3.eth.Contract(tokenABI, tokenAddress);
+
+        status.innerText = "⏳ Sending 1 TIFFY to your friend...";
+
+        // Step 1: Send 1 TIFFY to the friend
+        await contract.methods
+          .transfer(friend, web3.utils.toWei("1", "ether"))
+          .send({ from: sender });
+
+        status.innerText = "✅ Sent! Claiming your 2 TIFFY reward...";
+
+        // Step 2: Trigger backend to send 2 TIFFY back to sender
+        const res = await fetch(backendURL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wallet: sender, amount: 2 })
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+          status.innerText = "🎉 Success! You received 2 TIFFY.";
+        } else {
+          status.innerText = "⚠️ Sent, but reward failed. Try again later.";
+        }
+
+      } catch (err) {
+        console.error(err);
+        status.innerText = "❌ Transaction failed: " + (err.message || "Unknown error");
+      }
+    }
+  </script>
+</body>
+</html>
