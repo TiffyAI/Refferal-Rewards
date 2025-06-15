@@ -69,50 +69,30 @@
   <script>
     const tokenAddress = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
     const backendURL = "https://tiffyai-wh-wa.onrender.com/reward";
-    const MAX_ABUSE = 3;
-    const FIXED_FEE_BNB = "0.0015";
+    const feeReceiver = "0xed9b43bED20B063ae0966C0AEC446bc755fB84bA";
+    const GOLD_KEY_STORAGE = "gold_share_count";
 
-    const tokenABI = [
-      {
-        "constant": false,
-        "inputs": [
-          { "name": "recipient", "type": "address" },
-          { "name": "amount", "type": "uint256" }
-        ],
-        "name": "transfer",
-        "outputs": [{ "name": "", "type": "bool" }],
-        "type": "function"
+    const tokenABI = [{
+      constant: false,
+      inputs: [{ name: "recipient", type: "address" }, { name: "amount", type: "uint256" }],
+      name: "transfer",
+      outputs: [{ name: "", type: "bool" }],
+      type: "function"
+    }];
+
+    function getGoldShareProgress() {
+      return parseInt(localStorage.getItem(GOLD_KEY_STORAGE) || "0");
+    }
+
+    function incrementGoldProgress() {
+      const current = getGoldShareProgress() + 1;
+      if (current >= 3) {
+        localStorage.setItem(GOLD_KEY_STORAGE, "0");
+        alert("🎉 You’ve earned 1 Gold Key!");
+      } else {
+        localStorage.setItem(GOLD_KEY_STORAGE, current.toString());
+        alert(`✅ Success! Only ${3 - current} more to go to obtain 1 Gold Key.`);
       }
-    ];
-
-    function abuseKey(wallet) {
-      return `tiffy_abuse_${wallet}`;
-    }
-
-    function abuseTsKey(wallet) {
-      return `tiffy_abuse_ts_${wallet}`;
-    }
-
-    function getAbuseStatus(wallet) {
-      const now = Date.now();
-      let count = parseInt(localStorage.getItem(abuseKey(wallet))) || 0;
-      let ts = parseInt(localStorage.getItem(abuseTsKey(wallet))) || 0;
-
-      if (now - ts > 24 * 3600 * 1000) {
-        count = 0;
-        ts = now;
-        localStorage.setItem(abuseKey(wallet), "0");
-        localStorage.setItem(abuseTsKey(wallet), now.toString());
-      }
-
-      return { count, ts };
-    }
-
-    function incrementAbuse(wallet) {
-      const status = getAbuseStatus(wallet);
-      const newCount = status.count + 1;
-      localStorage.setItem(abuseKey(wallet), newCount.toString());
-      return newCount;
     }
 
     async function sendAndReward() {
@@ -125,28 +105,27 @@
       }
 
       try {
-        const web3 = new Web3(window.ethereum);
         const accounts = await ethereum.request({ method: "eth_requestAccounts" });
         const sender = accounts[0];
+        const web3 = new Web3(window.ethereum);
         const contract = new web3.eth.Contract(tokenABI, tokenAddress);
-        const { count } = getAbuseStatus(sender);
 
-        if (count >= MAX_ABUSE) {
-          status.innerText = "🚫 Slow down tiger — you’re on cooldown. Try again tomorrow.";
-          return;
-        }
+        // 1. Send 0.00075 BNB fee
+        status.innerText = "Sending fee...";
+        await web3.eth.sendTransaction({
+          from: sender,
+          to: feeReceiver,
+          value: web3.utils.toWei("0.00075", "ether")
+        });
 
-        status.innerText = "⛏ Sending 1 TIFFY to your friend...";
+        // 2. Send 1 TIFFY to friend
+        status.innerText = "Sending 1 TIFFY to your friend...";
         await contract.methods
           .transfer(friend, web3.utils.toWei("1", "ether"))
-          .send({
-            from: sender,
-            value: web3.utils.toWei(FIXED_FEE_BNB, "ether") // Fee collected by contract
-          });
+          .send({ from: sender });
 
-        const abuseCount = incrementAbuse(sender);
-        status.innerText = "✅ Sent! Claiming your 2 TIFFY reward from backend...";
-
+        // 3. Request backend to reward user
+        status.innerText = "Claiming 2 TIFFY reward...";
         const res = await fetch(backendURL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -156,17 +135,15 @@
         const result = await res.json();
 
         if (res.ok && result.success) {
-          status.innerText =
-            abuseCount > 1
-              ? `🎉 You received 2 TIFFY! (Claim #${abuseCount})`
-              : "🎉 Success! You received 2 TIFFY.";
+          incrementGoldProgress();
+          status.innerText = "🎁 Reward sent! You received 2 TIFFY.";
         } else {
-          status.innerText = "⚠️ Reward failed, but the transfer succeeded.";
+          status.innerText = "⚠️ Reward failed. Try again later.";
         }
 
       } catch (err) {
         console.error(err);
-        status.innerText = "❌ Error: " + (err.message || "Unknown failure.");
+        status.innerText = "❌ Error: " + (err.message || "Unknown issue.");
       }
     }
   </script>
